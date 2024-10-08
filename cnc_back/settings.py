@@ -160,7 +160,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-ALLOWED_HOSTS = ['cnc-inventory-backend.onrender.com','cnc-back.onrender.com', '127.0.0.1', 'localhost',]
+ALLOWED_HOSTS = ['cnc-inventory-backend.onrender.com','cnc-back.onrender.com', 'cnc-pdb.onrender.com', '127.0.0.1', 'localhost',]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
