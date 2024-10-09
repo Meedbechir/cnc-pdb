@@ -1,35 +1,41 @@
 from rest_framework import serializers
-from .models import Article, Famille, Origine, Emplacement, Inventaire, DetailInventaire
+from .models import Article, Famille, DetailInventaire, Designation
+
+class DesignationSerializer(serializers.ModelSerializer):
+    famille = serializers.CharField(max_length=50)
+
+    class Meta:
+        model = Designation
+        fields = ['id', 'nom', 'famille']
+
+    def create(self, validated_data):
+        famille_nom = validated_data.pop('famille')
+        famille, _ = Famille.objects.get_or_create(nom=famille_nom)
+        return Designation.objects.create(famille=famille, **validated_data)
+
 
 class DetailInventaireSerializer(serializers.ModelSerializer):
     class Meta:
         model = DetailInventaire
         fields = ['id', 'quantite', 'etat', 'article', 'inventaire', 'date']
 
+
 class ArticleSerializer(serializers.ModelSerializer):
-    famille_name = serializers.SerializerMethodField()
-    origine_name = serializers.SerializerMethodField()
+    famille_name = serializers.CharField(source='designation.famille.nom', read_only=True)
+    origine_name = serializers.CharField(source='origine.nom', read_only=True)
+    emplacement_name = serializers.CharField(source='emplacement.nom', read_only=True)
     etat = serializers.SerializerMethodField()
-    emplacement_name = serializers.SerializerMethodField()
     date_ajout = serializers.SerializerMethodField()
+    designation_name = serializers.CharField(source='designation.nom', read_only=True)
 
     class Meta:
         model = Article
-        fields = ['id', 'designation', 'famille_name', 'origine_name', 'emplacement_name', 'code_article', 'inventaire', 'etat', 'date_ajout']
-        
-    def get_famille_name(self, obj):
-        return obj.famille.nom 
-    
-    def get_origine_name(self, obj):
-        return obj.origine.nom 
-    
-    def get_emplacement_name(self, obj):  
-        return obj.emplacement.nom if obj.emplacement else None
+        fields = ['id', 'designation_name', 'famille_name', 'origine_name', 'emplacement_name', 'code_article', 'inventaire', 'etat', 'date_ajout']
 
     def get_etat(self, obj):
-        return DetailInventaire.objects.filter(article=obj).values_list('etat', flat=True).first()
-    
-    def get_date_ajout(self, obj):
-        return DetailInventaire.objects.filter(article=obj).values_list('date', flat=True).first()
+        etat = DetailInventaire.objects.filter(article=obj).values_list('etat', flat=True).first()
+        return etat or 'Non défini'
 
-    
+    def get_date_ajout(self, obj):
+        date_ajout = DetailInventaire.objects.filter(article=obj).values_list('date', flat=True).first()
+        return date_ajout or 'Non défini'

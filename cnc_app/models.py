@@ -25,16 +25,22 @@ class Emplacement(models.Model):
     def __str__(self):
         return self.nom
 
-class Article(models.Model):
-    designation = models.CharField(max_length=255)
+class Designation(models.Model):
+    nom = models.CharField(max_length=255, unique=True)
     famille = models.ForeignKey(Famille, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.nom
+
+class Article(models.Model):
+    designation = models.ForeignKey(Designation, on_delete=models.CASCADE)
     origine = models.ForeignKey(Origine, on_delete=models.CASCADE)
     emplacement = models.ForeignKey(Emplacement, on_delete=models.CASCADE, blank=True, null=True)
     code_article = models.CharField(max_length=50, unique=True, blank=True, null=True)
-    inventaire = models.ForeignKey(Inventaire, on_delete=models.CASCADE, default=2024) 
+    inventaire = models.ForeignKey(Inventaire, on_delete=models.CASCADE, default=2024)
 
     def __str__(self):
-        return self.designation
+        return f"{self.designation.nom} - {self.code_article}"
 
 class DetailInventaire(models.Model):
     article = models.ForeignKey(Article, on_delete=models.CASCADE)
@@ -44,4 +50,4 @@ class DetailInventaire(models.Model):
     date = models.DateField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.article.designation} - {self.date}"
+        return f"{self.article.designation.nom} - {self.date}"

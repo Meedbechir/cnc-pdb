@@ -81,20 +81,20 @@ WSGI_APPLICATION = 'cnc_back.wsgi.application'
 #     }
 # }
 
-DATABASES = {
-    "default": dj_database_url.parse("postgresql://cnc_pdb_user:zedM1drOQoZyGLU2dmfLbhvxqEzqPSVV@dpg-cs2hs80gph6c73847880-a.oregon-postgres.render.com/cnc_pdb")
-}
-
 # DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'f-db-cnc',
-#         'USER': 'postgres',
-#         'PASSWORD': 'Moh@med9394@',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     },
+#     "default": dj_database_url.parse("postgresql://cnc_pdb_user:zedM1drOQoZyGLU2dmfLbhvxqEzqPSVV@dpg-cs2hs80gph6c73847880-a.oregon-postgres.render.com/cnc_pdb")
 # }
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'cnc-up',
+        'USER': 'postgres',
+        'PASSWORD': 'Moh@med9394@',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    },
+}
 
 
 # Password validation
@@ -134,8 +134,8 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     
-    # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    # 'PAGE_SIZE': 10,
+    #  'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    #  'PAGE_SIZE': 10,
 }
 
 SIMPLE_JWT = {
