@@ -27,7 +27,6 @@ class Emplacement(models.Model):
 
 class Designation(models.Model):
     nom = models.CharField(max_length=255, unique=True)
-    famille = models.ForeignKey(Famille, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.nom
@@ -37,7 +36,8 @@ class Article(models.Model):
     origine = models.ForeignKey(Origine, on_delete=models.CASCADE)
     emplacement = models.ForeignKey(Emplacement, on_delete=models.CASCADE, blank=True, null=True)
     code_article = models.CharField(max_length=50, unique=True, blank=True, null=True)
-    inventaire = models.ForeignKey(Inventaire, on_delete=models.CASCADE, default=2024)
+    inventaire = models.ForeignKey(Inventaire, on_delete=models.CASCADE)
+    famille = models.ForeignKey(Famille, on_delete=models.CASCADE)
 
     def __str__(self):
         return f"{self.designation.nom} - {self.code_article}"
