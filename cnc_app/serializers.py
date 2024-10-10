@@ -21,16 +21,16 @@ class DetailInventaireSerializer(serializers.ModelSerializer):
 
 
 class ArticleSerializer(serializers.ModelSerializer):
-    famille_name = serializers.CharField(source='designation.famille.nom', read_only=True)
-    origine_name = serializers.CharField(source='origine.nom', read_only=True)
-    emplacement_name = serializers.CharField(source='emplacement.nom', read_only=True)
+    famille_nom = serializers.CharField(source='designation.famille.nom', read_only=True)
+    origine_nom = serializers.CharField(source='origine.nom', read_only=True)
+    emplacement_nom = serializers.CharField(source='emplacement.nom', read_only=True)
     etat = serializers.SerializerMethodField()
     date_ajout = serializers.SerializerMethodField()
-    designation_name = serializers.CharField(source='designation.nom', read_only=True)
+    designation_nom = serializers.CharField(source='designation.nom', read_only=True)
 
     class Meta:
         model = Article
-        fields = ['id', 'designation_name', 'famille_name', 'origine_name', 'emplacement_name', 'code_article', 'inventaire', 'etat', 'date_ajout']
+        fields = ['id', 'designation_nom', 'famille_nom', 'origine_nom', 'emplacement_nom', 'code_article', 'inventaire', 'etat', 'date_ajout']
 
     def get_etat(self, obj):
         etat = DetailInventaire.objects.filter(article=obj).values_list('etat', flat=True).first()

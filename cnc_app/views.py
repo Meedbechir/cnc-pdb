@@ -2,8 +2,10 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
 from datetime import datetime
-from .models import Article, Designation, Origine, Inventaire, DetailInventaire
+from .models import Article, Designation, Origine, Emplacement, Inventaire, DetailInventaire
 from .serializers import ArticleSerializer, DesignationSerializer
+
+
 
 class DesignationViewSet(viewsets.ModelViewSet):
     queryset = Designation.objects.all()
@@ -16,7 +18,7 @@ class DesignationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class ArticleViewSet(viewsets.ModelViewSet):
-    queryset = Article.objects.all()
+    queryset = Article.objects.all().order_by('id')
     serializer_class = ArticleSerializer
 
     def create(self, request, *args, **kwargs):
@@ -25,7 +27,6 @@ class ArticleViewSet(viewsets.ModelViewSet):
         quantite = request.data.get('quantite')
         annee = request.data.get('annee', datetime.now().year)
 
-        # Validation des champs obligatoires
         if not all([designation_id, origine_nom, quantite]) or quantite < 1:
             return Response({'error': 'Les champs désignation, origine, et quantité doivent être remplis, et la quantité doit être positive.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -40,6 +41,25 @@ class ArticleViewSet(viewsets.ModelViewSet):
         articles = self.create_articles(designation, origine, inventaire, quantite)
 
         return Response({'message': f'{quantite} articles créés', 'articles': ArticleSerializer(articles, many=True).data}, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        article = self.get_object()
+        emplacement_nom = request.data.get('emplacement')
+
+        if not emplacement_nom:
+            return Response({'error': 'L\'emplacement ne peut pas être vide.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        emplacement, _ = Emplacement.objects.get_or_create(nom=emplacement_nom)
+
+        article.emplacement = emplacement
+
+        numero_article = int(article.code_article.split('/')[0][len(article.designation.nom[:4].lower()):])
+
+        article.code_article = self.generate_code_article(article.designation, article.origine, numero_article, emplacement.nom)
+
+        article.save()
+
+        return Response(ArticleSerializer(article).data, status=status.HTTP_200_OK)
 
     def create_articles(self, designation, origine, inventaire, quantite):
         articles = []
@@ -77,11 +97,15 @@ class ArticleViewSet(viewsets.ModelViewSet):
             return int(dernier_code_article[len(designation.nom[:4].lower()):])
         return 0
 
-    def generate_code_article(self, designation, origine, numero_article):
-        code_article = f"{designation.nom[:4].lower()}{numero_article}/emplacement-pas-defini/{origine.nom.lower()}"
-        
+    def generate_code_article(self, designation, origine, numero_article, emplacement_nom=None):
+        emplacement_part = emplacement_nom.replace(' ', '-') if emplacement_nom else "emplacement-pas-defini"
+        origine_part = origine.nom.replace(' ', '-').lower() 
+
+        code_article = f"{designation.nom[:4].lower()}{numero_article}/{emplacement_part.lower()}/{origine_part}"
+
         while Article.objects.filter(code_article=code_article).exists():
             numero_article += 1 
-            code_article = f"{designation.nom[:4].lower()}{numero_article}/emplacement-pas-defini/{origine.nom.lower()}"
-        
+            code_article = f"{designation.nom[:4].lower()}{numero_article}/{emplacement_part}/{origine_part}"
+
         return code_article
+
