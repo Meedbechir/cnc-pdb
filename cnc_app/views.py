@@ -2,42 +2,30 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
 from datetime import datetime
-from .models import Article, Designation, Origine, Emplacement, Inventaire, DetailInventaire, Famille
-from .serializers import ArticleSerializer, DesignationSerializer
+from .models import Article, Designation, Origine, Emplacement, Inventaire, Famille, StatusArticle, DetailEntree, DetailInventaire
+from .serializers import ArticleSerializer, DesignationSerializer, FamilleSerializer
+
+class FamilleViewSet(viewsets.ModelViewSet):
+    queryset = Famille.objects.all()
+    serializer_class = FamilleSerializer
 
 class DesignationViewSet(viewsets.ModelViewSet):
     queryset = Designation.objects.all()
     serializer_class = DesignationSerializer
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        designation = serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 class ArticleViewSet(viewsets.ModelViewSet):
     queryset = Article.objects.all().order_by('id')
     serializer_class = ArticleSerializer
-
-    valid_familles = [
-        'materiel_informatique',
-        'materiel_bureautique',
-        'materiel_medical',
-        'materiel_transport',
-        'equipement_medical',
-        'autre_materiel_technique',
-    ]
 
     def create(self, request, *args, **kwargs):
         designation_id = request.data.get('designation_id')
         origine_nom = request.data.get('origine')
         quantite = request.data.get('quantite')
         famille_nom = request.data.get('famille')
-        annee = request.data.get('annee', datetime.now().year)
+        annee = request.data.get('annee_inventaire', datetime.now().year)
 
-        # Validation des champs requis
-        if not all([designation_id, origine_nom, quantite, famille_nom]) or quantite < 1:
-            return Response({'error': 'Les champs désignation, origine, famille, et quantité doivent être remplis, et la quantité doit être positive.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not all([designation_id, origine_nom, quantite, famille_nom]) or int(quantite) < 1:
+            return Response({'error': 'Tous les champs doivent être remplis, et la quantité doit être positive.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             designation = Designation.objects.get(id=designation_id)
@@ -45,11 +33,8 @@ class ArticleViewSet(viewsets.ModelViewSet):
             return Response({'error': 'La désignation spécifiée n\'existe pas.'}, status=status.HTTP_404_NOT_FOUND)
 
         origine, _ = Origine.objects.get_or_create(nom=origine_nom)
-
-        # Créer ou obtenir la famille
         famille, _ = Famille.objects.get_or_create(nom=famille_nom)
-
-        inventaire, _ = Inventaire.objects.get_or_create(annee=annee)
+        inventaire, _ = Inventaire.objects.get_or_create(annee_inventaire=annee)
 
         articles = self.create_articles(designation, origine, inventaire, quantite, famille)
 
@@ -58,70 +43,72 @@ class ArticleViewSet(viewsets.ModelViewSet):
     def create_articles(self, designation, origine, inventaire, quantite, famille):
         articles = []
         articles_existants = Article.objects.filter(designation=designation)
-
-        dernier_numero = self.get_dernier_numero(articles_existants, designation)
+        dernier_numero = self.get_dernier_numero(articles_existants)
 
         for i in range(1, quantite + 1):
-            code_article = self.generate_code_article(designation, origine, dernier_numero + i)
-
+            numero_article = dernier_numero + i
+            code_article = self.generate_code_article(designation, "emplacement-pas-defini", origine.nom, numero_article)
+            
             article = Article(
                 designation=designation,
-                origine=origine,
-                inventaire=inventaire,
-                code_article=code_article,
-                famille=famille  # Utiliser l'instance de famille ici
+                famille=famille
             )
             article.save()
 
-            DetailInventaire.objects.create(
+            emplacement, _ = Emplacement.objects.get_or_create(nom="emplacement-par-defaut")
+
+            detail_entree = DetailEntree.objects.create(
+                article=article,
+                quantite_entree=1,
+                origine=origine,
+                emplacement=emplacement,
+                code_article=code_article,
+                status=StatusArticle.objects.first() 
+            )
+
+            detail_inventaire = DetailInventaire.objects.create(
                 article=article,
                 inventaire=inventaire,
-                quantite=1,
-                etat='Moyen',
-                date=datetime.now().date()
+                quantite=1,  
+                status_article=StatusArticle.objects.first() 
             )
 
             articles.append(article)
 
         return articles
 
-
-    
-
     def update(self, request, *args, **kwargs):
-        article = self.get_object()
-        emplacement_nom = request.data.get('emplacement')
+        article = self.get_object()  
+        emplacement_nom = request.data.get('emplacement').replace(' ', '-')
+        annee = request.data.get('annee_inventaire', datetime.now().year)
 
-        if not emplacement_nom:
-            return Response({'error': 'L\'emplacement ne peut pas être vide.'}, status=status.HTTP_400_BAD_REQUEST)
+        if emplacement_nom:
+            emplacement, _ = Emplacement.objects.get_or_create(nom=emplacement_nom)
 
-        emplacement, _ = Emplacement.objects.get_or_create(nom=emplacement_nom)
+            detail_entree = DetailEntree.objects.filter(article=article).first()
+            origine_nom = detail_entree.origine.nom if detail_entree else "origine-inconnue"
 
-        article.emplacement = emplacement
+            if detail_entree:
+                existing_code_article = detail_entree.code_article.split('/')[0]  
+                code_article = f"{existing_code_article}/{emplacement_nom}/{origine_nom.lower()}"
+                
+                detail_entree.code_article = code_article
+                detail_entree.save()
 
-        numero_article = int(article.code_article.split('/')[0][len(article.designation.nom[:4].lower()):])
+                return Response({
+                    'message': 'Article mis à jour avec succès.',
+                    'article': ArticleSerializer(article).data,
+                    'code_article': code_article 
+                }, status=status.HTTP_200_OK)
 
-        article.code_article = self.generate_code_article(article.designation, article.origine, numero_article, emplacement.nom)
+        return Response({'error': 'Le nom de l\'emplacement est requis.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        article.save()
 
-        return Response(ArticleSerializer(article).data, status=status.HTTP_200_OK)
 
-    def get_dernier_numero(self, articles_existants, designation):
+    def get_dernier_numero(self, articles_existants):
         if articles_existants.exists():
-            dernier_article = articles_existants.order_by('-code_article').first()
-            dernier_code_article = dernier_article.code_article.split('/')[0]
-            return int(dernier_code_article[len(designation.nom[:4].lower()):])
+            return articles_existants.count() 
         return 0
 
-    def generate_code_article(self, designation, origine, numero_article, emplacement_nom=None):
-        emplacement_part = emplacement_nom.replace(' ', '-') if emplacement_nom else "emplacement-pas-defini"
-        origine_part = origine.nom.replace(' ', '-').lower() 
-
-        code_article = f"{designation.nom[:4].lower()}{numero_article}/{emplacement_part.lower()}/{origine_part}"
-
-        while Article.objects.filter(code_article=code_article).exists():
-            numero_article += 1 
-            code_article = f"{designation.nom[:4].lower()}{numero_article}/{emplacement_part}/{origine_part}"
-
-        return code_article
+    def generate_code_article(self, designation, emplacement_nom, origine_nom, numero_article):
+        return f"{designation.nom[:4].lower()}{numero_article}/{emplacement_nom.lower()}/{origine_nom.lower()}"

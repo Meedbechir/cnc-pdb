@@ -88,7 +88,7 @@ WSGI_APPLICATION = 'cnc_back.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'cnc-fdb',
+        'NAME': 'cnc-f-fdb',
         'USER': 'postgres',
         'PASSWORD': 'Moh@med9394@',
         'HOST': 'localhost',

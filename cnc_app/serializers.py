@@ -1,41 +1,43 @@
 from rest_framework import serializers
-from .models import Article, Famille, DetailInventaire, Designation
+from .models import Article, DetailInventaire, Designation, StatusArticle, DetailEntree, Famille
+
+
+class FamilleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Famille
+        fields = ['id', 'nom']
 
 class DesignationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Designation
-        fields = ['id', 'nom'] 
+        fields = ['id', 'nom']
+
+class StatusArticleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StatusArticle
+        fields = ['id', 'status_article']
+
 
 class DetailInventaireSerializer(serializers.ModelSerializer):
+    status_article = StatusArticleSerializer() 
+
     class Meta:
         model = DetailInventaire
-        fields = ['id', 'quantite', 'etat', 'article', 'inventaire', 'date']
+        fields = ['id', 'article', 'inventaire', 'quantite', 'status_article']
 
+class DetailEntreeSerializer(serializers.ModelSerializer):
+    status = StatusArticleSerializer()  
+
+    class Meta:
+        model = DetailEntree
+        fields = ['id', 'article', 'quantite_entree', 'origine', 'emplacement', 'code_article', 'status']
+        
 class ArticleSerializer(serializers.ModelSerializer):
-    famille = serializers.ChoiceField(choices=[ 
-        ('materiel_informatique', 'Matériel Informatique'),
-        ('materiel_bureautique', 'Matériel Bureautique'),
-        ('materiel_medical', 'Matériel Médical'),
-        ('materiel_transport', 'Matériel Transport'),
-        ('equipement_medical', 'Équipement Médical'),
-        ('autre_materiel_technique', 'Autre Matériel Technique'),
-    ], write_only=True)
-
-    famille_nom = serializers.CharField(source='famille', read_only=True)
-    origine_nom = serializers.CharField(source='origine.nom', read_only=True)
-    emplacement_nom = serializers.CharField(source='emplacement.nom', read_only=True)
-    etat = serializers.SerializerMethodField()
-    date_ajout = serializers.SerializerMethodField()
+    famille_nom = serializers.CharField(source='famille.nom', read_only=True)
     designation_nom = serializers.CharField(source='designation.nom', read_only=True)
+    details_entree = DetailEntreeSerializer(many=True, source='detailentree_set', read_only=True)
 
     class Meta:
         model = Article
-        fields = ['id', 'designation_nom', 'famille_nom', 'origine_nom', 'emplacement_nom', 'code_article', 'inventaire', 'etat', 'date_ajout', 'famille']
+        fields = ['id', 'designation', 'designation_nom', 'famille', 'famille_nom', 'details_entree']
 
-    def get_etat(self, obj):
-        etat = DetailInventaire.objects.filter(article=obj).values_list('etat', flat=True).first()
-        return etat or 'Non défini'
-
-    def get_date_ajout(self, obj):
-        date_ajout = DetailInventaire.objects.filter(article=obj).values_list('date', flat=True).first()
-        return date_ajout or 'Non défini'
